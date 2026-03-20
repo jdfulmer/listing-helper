@@ -143,6 +143,36 @@ const LISTING_ANALYSIS_TOOL: Anthropic.Messages.Tool = {
   },
 };
 
+async function runRevision(
+  client: Anthropic,
+  currentResult: Record<string, unknown>,
+  revision: string
+): Promise<Record<string, unknown>> {
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    tools: [LISTING_ANALYSIS_TOOL],
+    tool_choice: { type: "tool", name: "listing_analysis" },
+    messages: [
+      {
+        role: "user",
+        content: `Here is the current listing analysis:\n\n${JSON.stringify(currentResult, null, 2)}\n\nThe user wants these changes:\n${revision}\n\nApply the requested changes and return the full updated analysis. Keep everything else the same unless the change affects it.`,
+      },
+    ],
+  });
+
+  const toolBlock = message.content.find(
+    (block) => block.type === "tool_use"
+  );
+
+  if (toolBlock && toolBlock.type === "tool_use") {
+    return toolBlock.input as Record<string, unknown>;
+  }
+
+  throw new Error("No revised analysis generated");
+}
+
 async function runAnalysis(
   client: Anthropic,
   input: string
@@ -223,11 +253,59 @@ export async function POST(request: Request) {
   }
 
   let listing: string;
+  let revision: string | undefined;
+  let currentResult: Record<string, unknown> | undefined;
   try {
     const body = await request.json();
     listing = body?.listing;
+    revision = body?.revision;
+    currentResult = body?.currentResult;
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  // Revision mode: need revision text + current result
+  if (revision && currentResult) {
+    const client = new Anthropic({ apiKey });
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const keepAlive = setInterval(() => {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ status: "processing" })}\n\n`)
+          );
+        }, 5000);
+
+        try {
+          const result = await runRevision(client, currentResult!, revision!);
+          clearInterval(keepAlive);
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ result })}\n\n`)
+          );
+        } catch (err) {
+          clearInterval(keepAlive);
+          console.error("Revision error:", err);
+          const errMessage =
+            err instanceof Error ? err.message : "Something went wrong";
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: errMessage })}\n\n`
+            )
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   }
 
   if (!listing || typeof listing !== "string" || !listing.trim()) {

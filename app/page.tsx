@@ -32,6 +32,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [revision, setRevision] = useState("");
+  const [revising, setRevising] = useState(false);
 
   async function handleAnalyze() {
     if (!listing.trim()) return;
@@ -96,10 +98,69 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleRevision() {
+    if (!revision.trim() || !result) return;
+
+    setRevising(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          revision: revision.trim(),
+          currentResult: result,
+        }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error("Something went wrong. Please try again.");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+      }
+
+      const events = fullText
+        .split("\n\n")
+        .filter((e) => e.startsWith("data: "));
+      const lastEvent = events[events.length - 1];
+
+      if (!lastEvent) {
+        throw new Error("No response received. Please try again.");
+      }
+
+      const data = JSON.parse(lastEvent.replace("data: ", ""));
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResult(data.result);
+      setRevision("");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    } finally {
+      setRevising(false);
+    }
+  }
+
   function handleReset() {
     setResult(null);
     setListing("");
     setError("");
+    setRevision("");
   }
 
   return (
@@ -196,7 +257,57 @@ export default function Home() {
           </>
         ) : (
           <>
-            {/* Results */}
+            {/* Revision Input */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-sm">
+              <p className="text-sm font-medium text-slate-700 mb-2">
+                Request changes to your listing
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-4 py-3 text-base border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1B3A5C] focus:border-transparent placeholder:text-slate-400"
+                  placeholder='e.g. "Remove the fireplace, add the pickleball court"'
+                  value={revision}
+                  onChange={(e) => setRevision(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !revising) handleRevision();
+                  }}
+                  disabled={revising}
+                />
+                <button
+                  onClick={handleRevision}
+                  disabled={revising || !revision.trim()}
+                  className="px-5 py-3 bg-[#1B3A5C] text-white text-sm font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
+                >
+                  {revising ? (
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    "Update"
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
+            )}
 
             {/* Improved Listing Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
