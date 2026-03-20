@@ -62,6 +62,74 @@ const LISTING_ANALYSIS_TOOL: Anthropic.Messages.Tool = {
         type: "string",
         description: "Brief pricing strategy advice",
       },
+      comparable_properties: {
+        type: "object",
+        description:
+          "Comparable properties analysis with recommended price range and individual comps",
+        properties: {
+          recommended_range: {
+            type: "object",
+            properties: {
+              low: {
+                type: "number",
+                description: "Low end of recommended price range",
+              },
+              high: {
+                type: "number",
+                description: "High end of recommended price range",
+              },
+              reasoning: {
+                type: "string",
+                description:
+                  "Explanation of how the recommended range was determined based on comps",
+              },
+            },
+            required: ["low", "high", "reasoning"],
+          },
+          comps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                address: {
+                  type: "string",
+                  description: "Full address of the comparable property",
+                },
+                price: {
+                  type: "string",
+                  description: "Sale or list price, e.g. '$750,000'",
+                },
+                beds_baths: {
+                  type: "string",
+                  description: "Beds and baths, e.g. '3BR/2BA'",
+                },
+                sqft: {
+                  type: "string",
+                  description: "Square footage, e.g. '1,850 sqft'",
+                },
+                status: {
+                  type: "string",
+                  description: "'Sold', 'Active', or 'Pending'",
+                },
+                notes: {
+                  type: "string",
+                  description:
+                    "Optional brief comparison note, e.g. 'Similar layout, smaller lot'",
+                },
+              },
+              required: [
+                "address",
+                "price",
+                "beds_baths",
+                "sqft",
+                "status",
+              ],
+            },
+            description: "3-5 comparable properties",
+          },
+        },
+        required: ["recommended_range", "comps"],
+      },
     },
     required: [
       "headline",
@@ -70,6 +138,7 @@ const LISTING_ANALYSIS_TOOL: Anthropic.Messages.Tool = {
       "market_insights",
       "recommendations",
       "pricing_notes",
+      "comparable_properties",
     ],
   },
 };
@@ -101,67 +170,69 @@ export async function POST(request: Request) {
     const client = new Anthropic({ apiKey });
     const input = listing.trim();
 
-    // Step 1: Use web search to look up the listing, then get a text summary
-    const researchMessage = await client.messages.create({
+    // Single API call: web search (server-side) finds listing + comps,
+    // then Claude calls listing_analysis with structured output.
+    const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system:
-        "You are a real estate research assistant. Your job is to find complete property listing details. If given an MLS number or address, search the web to find the full listing. If given a full listing description, just pass it through. Return a comprehensive summary of the property including: address, price, beds/baths, square footage, lot size, year built, property type, all features, description, neighborhood details, and any other relevant information. Be as detailed as possible.",
+      max_tokens: 8192,
+      system: SYSTEM_PROMPT,
       tools: [
         {
           type: "web_search_20250305",
           name: "web_search",
           max_uses: 5,
         } as Anthropic.Messages.WebSearchTool20250305,
+        LISTING_ANALYSIS_TOOL,
       ],
       messages: [
         {
           role: "user",
-          content: `Find the complete property details for this listing:\n\n${input}`,
+          content: `Analyze and improve this listing. If this is an MLS number, address, or URL, search the web to find the full details first. Also search for comparable properties in the area.\n\n${input}`,
         },
       ],
     });
 
-    // Extract the text summary from the research step
-    const researchText = researchMessage.content
-      .filter((block): block is Anthropic.Messages.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("\n");
-
-    if (!researchText.trim()) {
-      return Response.json(
-        {
-          error:
-            "Could not find listing details. Try pasting the full listing description instead.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Step 2: Analyze the listing with structured output
-    const analysisMessage = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      tools: [LISTING_ANALYSIS_TOOL],
-      tool_choice: { type: "tool", name: "listing_analysis" },
-      messages: [
-        {
-          role: "user",
-          content: `Here are the complete property details to analyze and improve:\n\n${researchText}`,
-        },
-      ],
-    });
-
-    const toolBlock = analysisMessage.content.find(
-      (block) => block.type === "tool_use"
+    // Find the listing_analysis tool call in the response
+    const toolBlock = message.content.find(
+      (block) => block.type === "tool_use" && block.name === "listing_analysis"
     );
 
     if (!toolBlock || toolBlock.type !== "tool_use") {
-      return Response.json(
-        { error: "No analysis generated. Please try again." },
-        { status: 500 }
+      // Claude searched but didn't call listing_analysis — do a follow-up call
+      const researchText = message.content
+        .filter(
+          (block): block is Anthropic.Messages.TextBlock =>
+            block.type === "text"
+        )
+        .map((block) => block.text)
+        .join("\n");
+
+      const followUp = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        tools: [LISTING_ANALYSIS_TOOL],
+        tool_choice: { type: "tool", name: "listing_analysis" },
+        messages: [
+          {
+            role: "user",
+            content: `Analyze and improve this listing based on the research below. Include comparable properties and a recommended price range.\n\n${researchText}`,
+          },
+        ],
+      });
+
+      const followUpBlock = followUp.content.find(
+        (block) => block.type === "tool_use"
       );
+
+      if (!followUpBlock || followUpBlock.type !== "tool_use") {
+        return Response.json(
+          { error: "No analysis generated. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      return Response.json(followUpBlock.input);
     }
 
     return Response.json(toolBlock.input);

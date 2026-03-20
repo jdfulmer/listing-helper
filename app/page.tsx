@@ -9,6 +9,21 @@ type AnalysisResult = {
   market_insights: string;
   recommendations: { title: string; description: string }[];
   pricing_notes: string;
+  comparable_properties: {
+    recommended_range: {
+      low: number;
+      high: number;
+      reasoning: string;
+    };
+    comps: {
+      address: string;
+      price: string;
+      beds_baths: string;
+      sqft: string;
+      status: string;
+      notes?: string;
+    }[];
+  };
 };
 
 export default function Home() {
@@ -217,6 +232,85 @@ export default function Home() {
                 </p>
               </div>
             )}
+
+            {/* Recommended Price Range Card */}
+            {result.comparable_properties?.recommended_range && (
+              <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 mb-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg
+                    className="w-5 h-5 text-emerald-700"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-emerald-900">
+                    Recommended Price Range
+                  </h3>
+                </div>
+                <p className="text-2xl font-bold text-emerald-900 mb-2">
+                  ${result.comparable_properties.recommended_range.low.toLocaleString()}
+                  {" "}&ndash;{" "}
+                  ${result.comparable_properties.recommended_range.high.toLocaleString()}
+                </p>
+                <p className="text-emerald-800 text-sm leading-relaxed">
+                  {result.comparable_properties.recommended_range.reasoning}
+                </p>
+              </div>
+            )}
+
+            {/* Comparable Properties Card */}
+            {result.comparable_properties?.comps &&
+              result.comparable_properties.comps.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                    Comparable Properties
+                  </h3>
+                  <div className="space-y-3">
+                    {result.comparable_properties.comps.map((comp, i) => (
+                      <div
+                        key={i}
+                        className="p-3 border border-slate-100 rounded-lg"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-semibold text-slate-800 text-[15px]">
+                            {comp.address}
+                          </p>
+                          <span
+                            className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full ${
+                              comp.status === "Sold"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : comp.status === "Active"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {comp.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                          <span className="font-semibold text-[#1B3A5C]">
+                            {comp.price}
+                          </span>
+                          <span>{comp.beds_baths}</span>
+                          <span>{comp.sqft}</span>
+                        </div>
+                        {comp.notes && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            {comp.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             {/* Recommendations Card */}
             {result.recommendations && result.recommendations.length > 0 && (
