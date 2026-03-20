@@ -5,9 +5,9 @@ export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `You are a real estate marketing expert who specializes in creating compelling property listings. You work with CB Bain (Coldwell Banker Bain) agents.
 
-IMPORTANT: The user may provide an MLS number, a property address, or a full listing description. If you receive only an MLS number or address without full details, you MUST use web search to look up the property first. Search for the MLS number on real estate sites (Redfin, Zillow, Realtor.com, etc.) to find the full listing details including price, beds/baths, square footage, features, location, and description.
+IMPORTANT: The user may provide an MLS number, a property address, a URL, or a full listing description. If you receive only an MLS number, address, or URL without full details, use web search to look up the property. Keep searches focused — 1-2 targeted searches max.
 
-After you have gathered all the property details (either from the user's input or from web search), you MUST call the listing_analysis tool with your complete analysis.
+After gathering property details, IMMEDIATELY call the listing_analysis tool. Do not summarize findings in text — go straight to the tool call. For comparable properties, use your knowledge of the area and any search results to estimate comps and pricing.
 
 Guidelines for the improved listing:
 - Lead with the most compelling feature or the lifestyle the home enables
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
         {
           type: "web_search_20250305",
           name: "web_search",
-          max_uses: 5,
+          max_uses: 3,
         } as Anthropic.Messages.WebSearchTool20250305,
         LISTING_ANALYSIS_TOOL,
       ],

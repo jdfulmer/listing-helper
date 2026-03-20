@@ -48,8 +48,17 @@ export default function Home() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Something went wrong");
+        let message = "Something went wrong. Please try again.";
+        try {
+          const data = await res.json();
+          message = data.error || message;
+        } catch {
+          if (res.status === 504) {
+            message =
+              "The analysis took too long. Try pasting the full listing text instead of just the MLS number.";
+          }
+        }
+        throw new Error(message);
       }
 
       const data = await res.json();
