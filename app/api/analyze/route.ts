@@ -123,6 +123,11 @@ const LISTING_ANALYSIS_TOOL: Anthropic.Messages.Tool = {
                   type: "string",
                   description: "'Sold', 'Active', or 'Pending'",
                 },
+                url: {
+                  type: "string",
+                  description:
+                    "URL to the property listing on Zillow, Redfin, Realtor.com, or similar site if available from search results",
+                },
                 notes: {
                   type: "string",
                   description:

@@ -13,6 +13,7 @@ type ComparableProperty = {
   beds_baths: string;
   sqft: string;
   status: string;
+  url?: string;
   notes?: string;
 };
 
@@ -516,9 +517,17 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
                   className="p-3 border border-slate-100 rounded-lg"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="font-semibold text-slate-800 text-[15px]">
+                    <a
+                      href={
+                        comp.url ||
+                        `https://www.google.com/search?q=${encodeURIComponent(comp.address + " real estate")}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[#1B3A5C] text-[15px] underline decoration-blue-200 hover:decoration-[#1B3A5C] transition-colors"
+                    >
                       {comp.address}
-                    </p>
+                    </a>
                     <span
                       className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full ${
                         comp.status === "Sold"
