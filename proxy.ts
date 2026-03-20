@@ -7,10 +7,16 @@ export async function proxy(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If Supabase isn't configured, let the request through
+  if (!supabaseUrl || !supabaseKey) {
+    return response;
+  }
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -24,28 +30,31 @@ export async function proxy(request: NextRequest) {
           );
         },
       },
+    });
+
+    // Refresh the session — this is what keeps the auth cookie alive
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { pathname } = request.nextUrl;
+
+    // Unauthenticated users trying to access dashboard routes → redirect to login
+    if (!user && !pathname.startsWith("/login") && !pathname.startsWith("/signup")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
     }
-  );
 
-  // Refresh the session — this is what keeps the auth cookie alive
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // Unauthenticated users trying to access dashboard routes → redirect to login
-  if (!user && !pathname.startsWith("/login") && !pathname.startsWith("/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  // Authenticated users on auth pages → redirect to dashboard
-  if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    // Authenticated users on auth pages → redirect to dashboard
+    if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+  } catch {
+    // If auth check fails, let the request through
+    return response;
   }
 
   return response;
