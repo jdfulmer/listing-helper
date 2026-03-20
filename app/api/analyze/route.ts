@@ -81,10 +81,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Clean potential markdown code fences from the response
+    // Extract JSON from the response, handling markdown fences or surrounding text
     let text = textBlock.text.trim();
-    if (text.startsWith("```")) {
-      text = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+
+    // Strip markdown code fences if present
+    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    if (fenceMatch) {
+      text = fenceMatch[1].trim();
+    }
+
+    // If still not starting with {, try to find JSON object in the text
+    if (!text.startsWith("{")) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        text = jsonMatch[0];
+      }
     }
 
     const result = JSON.parse(text);
