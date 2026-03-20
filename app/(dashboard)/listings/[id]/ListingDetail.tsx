@@ -31,47 +31,65 @@ type Recommendation = {
   description: string;
 };
 
-type TargetBuyerProfile = {
+type TargetPersona = {
   persona_name: string;
   demographics: string;
   lifestyle: string;
   motivation: string;
+  objections?: string;
 };
 
-type SocialMediaPost = {
+type MarketingChannel = {
+  channel: string;
+  rationale: string;
+  budget_tier: string;
+};
+
+type PostIdea = {
   platform: string;
-  content: string;
-  hashtags?: string[];
+  format: string;
+  hook: string;
+  content_description: string;
+  call_to_action: string;
+};
+
+type SocialMediaStrategy = {
+  primary_platform: string;
+  post_ideas: PostIdea[];
+  hashtags: string[];
+  best_posting_times: string;
 };
 
 type StagingTip = {
-  room: string;
-  tips: string[];
+  tip: string;
+  persona_connection: string;
 };
 
-type OpenHousePlan = {
-  timing: string;
-  vibe: string;
+type OpenHouseStrategy = {
+  recommended_timing: string;
+  vibe_and_atmosphere: string;
   talking_points: string[];
-  neighborhood_route?: string;
+  neighborhood_tour_suggestion: string;
 };
 
-type AdCopy = {
+type AdCopyVariation = {
   platform: string;
   copy: string;
+  target_persona: string;
 };
 
 type NeighborhoodPoint = {
   amenity: string;
-  distance: string;
+  appeal_to: string;
 };
 
 type MarketingStrategy = {
-  target_buyer_profile?: TargetBuyerProfile;
-  social_media_posts?: SocialMediaPost[];
-  staging_tips?: StagingTip[];
-  open_house_plan?: OpenHousePlan;
-  ad_copy?: AdCopy[];
+  target_personas?: TargetPersona[];
+  marketing_channels?: MarketingChannel[];
+  social_media_strategy?: SocialMediaStrategy;
+  staging_and_showing_tips?: StagingTip[];
+  open_house_strategy?: OpenHouseStrategy;
+  ad_copy_variations?: AdCopyVariation[];
   neighborhood_selling_points?: NeighborhoodPoint[];
 };
 
@@ -626,120 +644,188 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
             </p>
           </div>
 
-          {/* Target Buyer Profile */}
-          {currentAnalysis.marketing_strategy.target_buyer_profile && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
-              <h4 className="text-base font-semibold text-slate-800 mb-3">
-                Target Buyer Profile
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                    Persona
-                  </p>
-                  <p className="text-slate-800 text-[15px] font-medium">
-                    {currentAnalysis.marketing_strategy.target_buyer_profile.persona_name}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                      Demographics
-                    </p>
-                    <p className="text-slate-700 text-sm leading-snug">
-                      {currentAnalysis.marketing_strategy.target_buyer_profile.demographics}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                      Lifestyle
-                    </p>
-                    <p className="text-slate-700 text-sm leading-snug">
-                      {currentAnalysis.marketing_strategy.target_buyer_profile.lifestyle}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                      Motivation
-                    </p>
-                    <p className="text-slate-700 text-sm leading-snug">
-                      {currentAnalysis.marketing_strategy.target_buyer_profile.motivation}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Social Media Posts */}
-          {currentAnalysis.marketing_strategy.social_media_posts &&
-            currentAnalysis.marketing_strategy.social_media_posts.length > 0 && (
+          {/* Target Buyer Personas */}
+          {currentAnalysis.marketing_strategy.target_personas &&
+            currentAnalysis.marketing_strategy.target_personas.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
                 <h4 className="text-base font-semibold text-slate-800 mb-3">
-                  Social Media
+                  Target Buyer Personas
                 </h4>
                 <div className="space-y-4">
-                  {currentAnalysis.marketing_strategy.social_media_posts.map(
+                  {currentAnalysis.marketing_strategy.target_personas.map(
+                    (persona, i) => (
+                      <div
+                        key={i}
+                        className="p-4 border border-slate-100 rounded-lg"
+                      >
+                        <p className="text-[15px] font-semibold text-[#1B3A5C] mb-2">
+                          {persona.persona_name}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                              Demographics
+                            </p>
+                            <p className="text-slate-700 text-sm leading-snug">
+                              {persona.demographics}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                              Lifestyle
+                            </p>
+                            <p className="text-slate-700 text-sm leading-snug">
+                              {persona.lifestyle}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                              Motivation
+                            </p>
+                            <p className="text-slate-700 text-sm leading-snug">
+                              {persona.motivation}
+                            </p>
+                          </div>
+                          {persona.objections && (
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                                Likely Objections
+                              </p>
+                              <p className="text-slate-700 text-sm leading-snug">
+                                {persona.objections}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+          {/* Marketing Channels */}
+          {currentAnalysis.marketing_strategy.marketing_channels &&
+            currentAnalysis.marketing_strategy.marketing_channels.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
+                <h4 className="text-base font-semibold text-slate-800 mb-3">
+                  Marketing Channels
+                </h4>
+                <div className="space-y-3">
+                  {currentAnalysis.marketing_strategy.marketing_channels.map(
+                    (ch, i) => (
+                      <div
+                        key={i}
+                        className="flex items-start justify-between gap-3 p-3 border border-slate-100 rounded-lg"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {ch.channel}
+                          </p>
+                          <p className="text-slate-600 text-sm leading-snug mt-0.5">
+                            {ch.rationale}
+                          </p>
+                        </div>
+                        <span className={`flex-shrink-0 px-2.5 py-1 text-xs font-medium rounded-full ${
+                          ch.budget_tier === "free"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : ch.budget_tier?.startsWith("low")
+                              ? "bg-blue-100 text-blue-800"
+                              : ch.budget_tier?.startsWith("medium")
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                        }`}>
+                          {ch.budget_tier}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+          {/* Social Media Strategy */}
+          {currentAnalysis.marketing_strategy.social_media_strategy && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
+              <h4 className="text-base font-semibold text-slate-800 mb-1">
+                Social Media Strategy
+              </h4>
+              <p className="text-sm text-slate-500 mb-3">
+                Primary platform: <span className="font-medium text-[#1B3A5C]">{currentAnalysis.marketing_strategy.social_media_strategy.primary_platform}</span>
+                {" "}&middot;{" "}Best times: {currentAnalysis.marketing_strategy.social_media_strategy.best_posting_times}
+              </p>
+
+              {currentAnalysis.marketing_strategy.social_media_strategy.post_ideas?.length > 0 && (
+                <div className="space-y-4 mb-4">
+                  {currentAnalysis.marketing_strategy.social_media_strategy.post_ideas.map(
                     (post, i) => (
                       <div
                         key={i}
                         className="p-3 border border-slate-100 rounded-lg"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-semibold text-[#1B3A5C] uppercase tracking-wide">
                             {post.platform}
                           </span>
-                          <CopyButton text={post.content} />
+                          <span className="text-xs text-slate-400">&middot;</span>
+                          <span className="text-xs text-slate-500">
+                            {post.format}
+                          </span>
                         </div>
-                        <p className="text-slate-700 text-sm leading-snug whitespace-pre-line">
-                          {post.content}
+                        <p className="text-sm font-medium text-slate-800 mb-1">
+                          {post.hook}
                         </p>
-                        {post.hashtags && post.hashtags.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {post.hashtags.map((tag, j) => (
-                              <span
-                                key={j}
-                                className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"
-                              >
-                                {tag.startsWith("#") ? tag : `#${tag}`}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <p className="text-slate-600 text-sm leading-snug">
+                          {post.content_description}
+                        </p>
+                        <p className="text-xs text-[#1B3A5C] font-medium mt-2">
+                          CTA: {post.call_to_action}
+                        </p>
                       </div>
                     )
                   )}
                 </div>
-              </div>
-            )}
+              )}
+
+              {currentAnalysis.marketing_strategy.social_media_strategy.hashtags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {currentAnalysis.marketing_strategy.social_media_strategy.hashtags.map((tag, j) => (
+                    <span
+                      key={j}
+                      className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"
+                    >
+                      {tag.startsWith("#") ? tag : `#${tag}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Staging & Showing Tips */}
-          {currentAnalysis.marketing_strategy.staging_tips &&
-            currentAnalysis.marketing_strategy.staging_tips.length > 0 && (
+          {currentAnalysis.marketing_strategy.staging_and_showing_tips &&
+            currentAnalysis.marketing_strategy.staging_and_showing_tips.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
                 <h4 className="text-base font-semibold text-slate-800 mb-3">
                   Staging &amp; Showing Tips
                 </h4>
-                <div className="space-y-4">
-                  {currentAnalysis.marketing_strategy.staging_tips.map(
-                    (section, i) => (
-                      <div key={i}>
-                        <p className="text-sm font-semibold text-slate-700 mb-1.5">
-                          {section.room}
-                        </p>
-                        <ul className="space-y-1">
-                          {section.tips.map((tip, j) => (
-                            <li
-                              key={j}
-                              className="text-slate-600 text-sm leading-snug flex gap-2"
-                            >
-                              <span className="text-[#1B3A5C] flex-shrink-0 mt-0.5">
-                                &bull;
-                              </span>
-                              {tip}
-                            </li>
-                          ))}
-                        </ul>
+                <div className="space-y-3">
+                  {currentAnalysis.marketing_strategy.staging_and_showing_tips.map(
+                    (item, i) => (
+                      <div key={i} className="flex gap-3 p-3 border border-slate-100 rounded-lg">
+                        <div className="w-7 h-7 flex-shrink-0 bg-blue-50 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-sm font-bold text-[#1B3A5C]">
+                            {i + 1}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-slate-800 text-sm leading-snug">
+                            {item.tip}
+                          </p>
+                          <p className="text-slate-500 text-xs mt-1">
+                            {item.persona_connection}
+                          </p>
+                        </div>
                       </div>
                     )
                   )}
@@ -747,11 +833,11 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
               </div>
             )}
 
-          {/* Open House Plan */}
-          {currentAnalysis.marketing_strategy.open_house_plan && (
+          {/* Open House Strategy */}
+          {currentAnalysis.marketing_strategy.open_house_strategy && (
             <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
               <h4 className="text-base font-semibold text-slate-800 mb-3">
-                Open House Plan
+                Open House Strategy
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
@@ -759,26 +845,25 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
                     Timing
                   </p>
                   <p className="text-slate-700 text-sm">
-                    {currentAnalysis.marketing_strategy.open_house_plan.timing}
+                    {currentAnalysis.marketing_strategy.open_house_strategy.recommended_timing}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                    Vibe
+                    Vibe &amp; Atmosphere
                   </p>
                   <p className="text-slate-700 text-sm">
-                    {currentAnalysis.marketing_strategy.open_house_plan.vibe}
+                    {currentAnalysis.marketing_strategy.open_house_strategy.vibe_and_atmosphere}
                   </p>
                 </div>
               </div>
-              {currentAnalysis.marketing_strategy.open_house_plan.talking_points
-                .length > 0 && (
+              {currentAnalysis.marketing_strategy.open_house_strategy.talking_points?.length > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                     Talking Points
                   </p>
                   <ul className="space-y-1">
-                    {currentAnalysis.marketing_strategy.open_house_plan.talking_points.map(
+                    {currentAnalysis.marketing_strategy.open_house_strategy.talking_points.map(
                       (point, i) => (
                         <li
                           key={i}
@@ -794,40 +879,41 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
                   </ul>
                 </div>
               )}
-              {currentAnalysis.marketing_strategy.open_house_plan
-                .neighborhood_route && (
+              {currentAnalysis.marketing_strategy.open_house_strategy.neighborhood_tour_suggestion && (
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                    Neighborhood Route
+                    Neighborhood Tour
                   </p>
                   <p className="text-slate-700 text-sm leading-snug">
-                    {
-                      currentAnalysis.marketing_strategy.open_house_plan
-                        .neighborhood_route
-                    }
+                    {currentAnalysis.marketing_strategy.open_house_strategy.neighborhood_tour_suggestion}
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Ad Copy */}
-          {currentAnalysis.marketing_strategy.ad_copy &&
-            currentAnalysis.marketing_strategy.ad_copy.length > 0 && (
+          {/* Ad Copy Variations */}
+          {currentAnalysis.marketing_strategy.ad_copy_variations &&
+            currentAnalysis.marketing_strategy.ad_copy_variations.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
                 <h4 className="text-base font-semibold text-slate-800 mb-3">
                   Ad Copy
                 </h4>
                 <div className="space-y-4">
-                  {currentAnalysis.marketing_strategy.ad_copy.map((ad, i) => (
+                  {currentAnalysis.marketing_strategy.ad_copy_variations.map((ad, i) => (
                     <div
                       key={i}
                       className="p-3 border border-slate-100 rounded-lg"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-[#1B3A5C] uppercase tracking-wide">
-                          {ad.platform}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-[#1B3A5C] uppercase tracking-wide">
+                            {ad.platform}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            for {ad.target_persona}
+                          </span>
+                        </div>
                         <CopyButton text={ad.copy} />
                       </div>
                       <p className="text-slate-700 text-sm leading-snug whitespace-pre-line">
@@ -841,25 +927,24 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
 
           {/* Neighborhood Selling Points */}
           {currentAnalysis.marketing_strategy.neighborhood_selling_points &&
-            currentAnalysis.marketing_strategy.neighborhood_selling_points
-              .length > 0 && (
+            currentAnalysis.marketing_strategy.neighborhood_selling_points.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4 shadow-sm">
                 <h4 className="text-base font-semibold text-slate-800 mb-3">
                   Neighborhood Selling Points
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-2">
                   {currentAnalysis.marketing_strategy.neighborhood_selling_points.map(
                     (point, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg"
+                        className="p-2.5 bg-slate-50 rounded-lg"
                       >
-                        <span className="text-slate-800 text-sm font-medium">
+                        <p className="text-slate-800 text-sm font-medium">
                           {point.amenity}
-                        </span>
-                        <span className="text-slate-500 text-xs flex-shrink-0 ml-2">
-                          {point.distance}
-                        </span>
+                        </p>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                          {point.appeal_to}
+                        </p>
                       </div>
                     )
                   )}
