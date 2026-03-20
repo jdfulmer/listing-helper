@@ -64,41 +64,82 @@ export async function POST(request: Request) {
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
+      tools: [
+        {
+          name: "listing_analysis",
+          description:
+            "Return the improved listing, highlights, market insights, recommendations, and pricing notes.",
+          input_schema: {
+            type: "object" as const,
+            properties: {
+              headline: {
+                type: "string",
+                description: "A compelling one-line headline for the listing",
+              },
+              improved_listing: {
+                type: "string",
+                description:
+                  "The improved listing description, 150-250 words. Multiple paragraphs separated by newlines.",
+              },
+              highlights: {
+                type: "array",
+                items: { type: "string" },
+                description: "Exactly 5 key feature highlights",
+              },
+              market_insights: {
+                type: "string",
+                description:
+                  "A paragraph providing market context for this property",
+              },
+              recommendations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    description: { type: "string" },
+                  },
+                  required: ["title", "description"],
+                },
+                description: "3-5 actionable recommendations",
+              },
+              pricing_notes: {
+                type: "string",
+                description: "Brief pricing strategy advice",
+              },
+            },
+            required: [
+              "headline",
+              "improved_listing",
+              "highlights",
+              "market_insights",
+              "recommendations",
+              "pricing_notes",
+            ],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "listing_analysis" },
       messages: [
         {
           role: "user",
           content: `Here is my MLS listing to improve:\n\n${listing.trim()}`,
         },
-        {
-          role: "assistant",
-          content: "{",
-        },
       ],
     });
 
-    const textBlock = message.content.find((block) => block.type === "text");
+    const toolBlock = message.content.find(
+      (block) => block.type === "tool_use"
+    );
 
-    if (!textBlock || textBlock.type !== "text") {
+    if (!toolBlock || toolBlock.type !== "tool_use") {
       return Response.json(
         { error: "No response generated. Please try again." },
         { status: 500 }
       );
     }
 
-    // Prepend the "{" we used as prefill
-    const raw = "{" + textBlock.text;
-
-    // Extract the JSON object from the response
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("No JSON found in response:", raw.slice(0, 500));
-      return Response.json(
-        { error: "Failed to parse the analysis. Please try again." },
-        { status: 500 }
-      );
-    }
-
-    const result = JSON.parse(jsonMatch[0]);
+    const result = toolBlock.input;
     return Response.json(result);
   } catch (err) {
     console.error("Analysis error:", err);
