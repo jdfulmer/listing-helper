@@ -69,6 +69,10 @@ export async function POST(request: Request) {
           role: "user",
           content: `Here is my MLS listing to improve:\n\n${listing.trim()}`,
         },
+        {
+          role: "assistant",
+          content: "{",
+        },
       ],
     });
 
@@ -81,24 +85,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Extract JSON from the response, handling markdown fences or surrounding text
-    let text = textBlock.text.trim();
+    // Prepend the "{" we used as prefill
+    const raw = "{" + textBlock.text;
 
-    // Strip markdown code fences if present
-    const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-    if (fenceMatch) {
-      text = fenceMatch[1].trim();
+    // Extract the JSON object from the response
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON found in response:", raw.slice(0, 500));
+      return Response.json(
+        { error: "Failed to parse the analysis. Please try again." },
+        { status: 500 }
+      );
     }
 
-    // If still not starting with {, try to find JSON object in the text
-    if (!text.startsWith("{")) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        text = jsonMatch[0];
-      }
-    }
-
-    const result = JSON.parse(text);
+    const result = JSON.parse(jsonMatch[0]);
     return Response.json(result);
   } catch (err) {
     console.error("Analysis error:", err);
