@@ -98,14 +98,15 @@ export default function Home() {
                 Improve Your Listing
               </h2>
               <p className="text-slate-500 text-sm leading-snug">
-                Paste your MLS listing below and we&apos;ll create improved copy
-                with market insights and recommendations.
+                Enter an MLS number, property address, or paste your full
+                listing — we&apos;ll look it up and create improved copy with
+                market insights.
               </p>
             </div>
 
             <textarea
               className="w-full h-52 p-4 text-base border border-slate-300 rounded-xl bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#1B3A5C] focus:border-transparent placeholder:text-slate-400"
-              placeholder={`Paste your MLS listing here...\n\nExample:\n3BR/2BA Craftsman in Ballard\n$875,000 | 1,850 sqft\nUpdated kitchen, hardwood floors...`}
+              placeholder={`Enter an MLS number, address, or paste a full listing...\n\nExamples:\n• 2486142\n• 123 Main St, Seattle WA\n• 3BR/2BA Craftsman in Ballard, $875,000...`}
               value={listing}
               onChange={(e) => setListing(e.target.value)}
               disabled={loading}
@@ -140,7 +141,7 @@ export default function Home() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  Analyzing your listing...
+                  Looking up &amp; analyzing...
                 </span>
               ) : (
                 "Improve My Listing"
@@ -149,7 +150,7 @@ export default function Home() {
 
             {loading && (
               <p className="text-center text-slate-400 text-sm mt-3">
-                This usually takes about 10 seconds
+                This usually takes 15-30 seconds
               </p>
             )}
           </>
