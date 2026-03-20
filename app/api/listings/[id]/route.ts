@@ -117,3 +117,53 @@ export async function PATCH(
 
   return Response.json({ listing: updated });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return Response.json(
+      { error: "Authentication required." },
+      { status: 401 }
+    );
+  }
+
+  // Verify ownership
+  const { data: listing, error: listingError } = await supabase
+    .from("listings")
+    .select("id, user_id")
+    .eq("id", id)
+    .single();
+
+  if (listingError || !listing) {
+    return Response.json({ error: "Listing not found." }, { status: 404 });
+  }
+
+  if (listing.user_id !== user.id) {
+    return Response.json({ error: "Listing not found." }, { status: 404 });
+  }
+
+  // Delete the listing (analyses cascade)
+  const { error: deleteError } = await supabase
+    .from("listings")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    console.error("Failed to delete listing:", deleteError);
+    return Response.json(
+      { error: "Failed to delete listing." },
+      { status: 500 }
+    );
+  }
+
+  return Response.json({ success: true });
+}

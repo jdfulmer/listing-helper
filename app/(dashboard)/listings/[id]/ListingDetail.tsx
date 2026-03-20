@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -199,6 +200,9 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
   const [revision, setRevision] = useState("");
   const [revising, setRevising] = useState(false);
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
 
   const currentAnalysis = allAnalyses.find((a) => a.version === selectedVersion) || null;
 
@@ -308,8 +312,22 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
         body: JSON.stringify({ status: newStatus }),
       });
     } catch {
-      // Revert on error
       setStatus(listing.status);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/listings/${listing.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      router.push("/");
+    } catch {
+      setError("Failed to delete listing. Please try again.");
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -360,6 +378,32 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
               </option>
             ))}
           </select>
+
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-full hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Delete
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Confirm"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
