@@ -191,8 +191,35 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
 // Main component
 // ---------------------------------------------------------------------------
 
+// Parse JSONB fields that may be multi-layered stringified from the database
+function parseJsonbField<T>(value: T | string | null): T | null {
+  if (value === null || value === undefined) return null;
+  let current: unknown = value;
+  // Peel off string layers until we get an object/array or fail
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      return null;
+    }
+  }
+  return current as T;
+}
+
+function normalizeAnalysis(a: AnalysisResult): AnalysisResult {
+  return {
+    ...a,
+    highlights: parseJsonbField(a.highlights) ?? [],
+    recommendations: parseJsonbField(a.recommendations) ?? [],
+    comparable_properties: parseJsonbField(a.comparable_properties) ?? a.comparable_properties,
+    marketing_strategy: parseJsonbField(a.marketing_strategy),
+  };
+}
+
 export default function ListingDetail({ listing, analyses }: ListingDetailProps) {
-  const [allAnalyses, setAllAnalyses] = useState<AnalysisResult[]>(analyses);
+  const [allAnalyses, setAllAnalyses] = useState<AnalysisResult[]>(
+    analyses.map(normalizeAnalysis)
+  );
   const [selectedVersion, setSelectedVersion] = useState<number>(
     analyses.length > 0 ? analyses[analyses.length - 1].version : 1
   );
@@ -289,7 +316,7 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
         created_at: new Date().toISOString(),
       };
 
-      setAllAnalyses((prev) => [...prev, newAnalysis]);
+      setAllAnalyses((prev) => [...prev, normalizeAnalysis(newAnalysis)]);
       setSelectedVersion(newAnalysis.version);
       setRevision("");
     } catch (err) {

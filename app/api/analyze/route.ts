@@ -4,6 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 // Allow max duration for streaming
 export const maxDuration = 300;
 
+// Ensure a value is a proper object for JSONB storage (peel off string layers)
+function ensureJsonb(value: unknown): unknown {
+  if (value === null || value === undefined) return null;
+  let current: unknown = value;
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      return current;
+    }
+  }
+  return current;
+}
+
 const SYSTEM_PROMPT = `You are a real estate marketing expert who specializes in creating compelling property listings. You work with CB Bain (Coldwell Banker Bain) agents.
 
 IMPORTANT: The user may provide an MLS number, a property address, a URL, or a full listing description. If you receive only an MLS number, address, or URL without full details, use web search to look up the property. Keep searches focused — 1-2 targeted searches max.
@@ -593,27 +607,19 @@ export async function POST(request: Request) {
                 .eq("id", savedListingId);
 
               // Create a new analysis row for the revision
+              const rv = result as Record<string, unknown>;
               await supabase.from("analyses").insert({
                 listing_id: savedListingId,
                 version: nextVersion,
                 revision_prompt: revision,
-                headline: (result as Record<string, unknown>).headline ?? null,
-                improved_listing:
-                  (result as Record<string, unknown>).improved_listing ?? null,
-                highlights:
-                  (result as Record<string, unknown>).highlights ?? null,
-                market_insights:
-                  (result as Record<string, unknown>).market_insights ?? null,
-                recommendations:
-                  (result as Record<string, unknown>).recommendations ?? null,
-                pricing_notes:
-                  (result as Record<string, unknown>).pricing_notes ?? null,
-                comparable_properties:
-                  (result as Record<string, unknown>).comparable_properties ??
-                  null,
-                marketing_strategy:
-                  (result as Record<string, unknown>).marketing_strategy ??
-                  null,
+                headline: rv.headline ?? null,
+                improved_listing: rv.improved_listing ?? null,
+                highlights: ensureJsonb(rv.highlights),
+                market_insights: rv.market_insights ?? null,
+                recommendations: ensureJsonb(rv.recommendations),
+                pricing_notes: rv.pricing_notes ?? null,
+                comparable_properties: ensureJsonb(rv.comparable_properties),
+                marketing_strategy: ensureJsonb(rv.marketing_strategy),
               });
             }
           } catch (dbErr) {
@@ -703,29 +709,20 @@ export async function POST(request: Request) {
             savedListingId = listingRow.id;
 
             // Create the first analysis row
+            const r = result as Record<string, unknown>;
             const { error: analysisErr } = await supabase
               .from("analyses")
               .insert({
                 listing_id: savedListingId,
                 version: 1,
-                headline:
-                  (result as Record<string, unknown>).headline ?? null,
-                improved_listing:
-                  (result as Record<string, unknown>).improved_listing ?? null,
-                highlights:
-                  (result as Record<string, unknown>).highlights ?? null,
-                market_insights:
-                  (result as Record<string, unknown>).market_insights ?? null,
-                recommendations:
-                  (result as Record<string, unknown>).recommendations ?? null,
-                pricing_notes:
-                  (result as Record<string, unknown>).pricing_notes ?? null,
-                comparable_properties:
-                  (result as Record<string, unknown>).comparable_properties ??
-                  null,
-                marketing_strategy:
-                  (result as Record<string, unknown>).marketing_strategy ??
-                  null,
+                headline: r.headline ?? null,
+                improved_listing: r.improved_listing ?? null,
+                highlights: ensureJsonb(r.highlights),
+                market_insights: r.market_insights ?? null,
+                recommendations: ensureJsonb(r.recommendations),
+                pricing_notes: r.pricing_notes ?? null,
+                comparable_properties: ensureJsonb(r.comparable_properties),
+                marketing_strategy: ensureJsonb(r.marketing_strategy),
               });
 
             if (analysisErr) {
