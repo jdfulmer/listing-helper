@@ -61,7 +61,8 @@ export async function POST(request: Request) {
     const client = new Anthropic({ apiKey });
 
     const message = await client.messages.create({
-      model: "claude-sonnet-4-6-20250514",
+      // @ts-expect-error -- alias model ID
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [
@@ -99,10 +100,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const message =
+    const errMessage =
       err instanceof Error ? err.message : "Something went wrong";
 
-    if (message.includes("authentication") || message.includes("api_key")) {
+    if (errMessage.includes("authentication") || errMessage.includes("api_key")) {
       return Response.json(
         { error: "Invalid API key. Please check your ANTHROPIC_API_KEY." },
         { status: 401 }
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { error: "Something went wrong. Please try again." },
+      { error: `Analysis failed: ${errMessage}` },
       { status: 500 }
     );
   }
