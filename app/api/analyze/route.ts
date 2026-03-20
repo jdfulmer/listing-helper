@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Allow up to 60s for web search + analysis
-export const maxDuration = 60;
+// Allow max duration for streaming
+export const maxDuration = 300;
 
 const SYSTEM_PROMPT = `You are a real estate marketing expert who specializes in creating compelling property listings. You work with CB Bain (Coldwell Banker Bain) agents.
 
@@ -143,6 +143,72 @@ const LISTING_ANALYSIS_TOOL: Anthropic.Messages.Tool = {
   },
 };
 
+async function runAnalysis(
+  client: Anthropic,
+  input: string
+): Promise<Record<string, unknown>> {
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: SYSTEM_PROMPT,
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 3,
+      } as Anthropic.Messages.WebSearchTool20250305,
+      LISTING_ANALYSIS_TOOL,
+    ],
+    messages: [
+      {
+        role: "user",
+        content: `Analyze and improve this listing. If this is an MLS number, address, or URL, search the web to find the full details first. Also search for comparable properties in the area.\n\n${input}`,
+      },
+    ],
+  });
+
+  // Find listing_analysis tool call
+  const toolBlock = message.content.find(
+    (block) => block.type === "tool_use" && block.name === "listing_analysis"
+  );
+
+  if (toolBlock && toolBlock.type === "tool_use") {
+    return toolBlock.input as Record<string, unknown>;
+  }
+
+  // Fallback: Claude searched but didn't call the tool — do a quick follow-up
+  const researchText = message.content
+    .filter(
+      (block): block is Anthropic.Messages.TextBlock => block.type === "text"
+    )
+    .map((block) => block.text)
+    .join("\n");
+
+  const followUp = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    tools: [LISTING_ANALYSIS_TOOL],
+    tool_choice: { type: "tool", name: "listing_analysis" },
+    messages: [
+      {
+        role: "user",
+        content: `Analyze and improve this listing based on the research below. Include comparable properties and a recommended price range.\n\n${researchText}`,
+      },
+    ],
+  });
+
+  const followUpBlock = followUp.content.find(
+    (block) => block.type === "tool_use"
+  );
+
+  if (followUpBlock && followUpBlock.type === "tool_use") {
+    return followUpBlock.input as Record<string, unknown>;
+  }
+
+  throw new Error("No analysis generated");
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -156,105 +222,62 @@ export async function POST(request: Request) {
     );
   }
 
+  let listing: string;
   try {
     const body = await request.json();
-    const listing = body?.listing;
+    listing = body?.listing;
+  } catch {
+    return Response.json({ error: "Invalid request." }, { status: 400 });
+  }
 
-    if (!listing || typeof listing !== "string" || !listing.trim()) {
-      return Response.json(
-        { error: "Please provide a listing to analyze." },
-        { status: 400 }
-      );
-    }
-
-    const client = new Anthropic({ apiKey });
-    const input = listing.trim();
-
-    // Single API call: web search (server-side) finds listing + comps,
-    // then Claude calls listing_analysis with structured output.
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8192,
-      system: SYSTEM_PROMPT,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 3,
-        } as Anthropic.Messages.WebSearchTool20250305,
-        LISTING_ANALYSIS_TOOL,
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `Analyze and improve this listing. If this is an MLS number, address, or URL, search the web to find the full details first. Also search for comparable properties in the area.\n\n${input}`,
-        },
-      ],
-    });
-
-    // Find the listing_analysis tool call in the response
-    const toolBlock = message.content.find(
-      (block) => block.type === "tool_use" && block.name === "listing_analysis"
-    );
-
-    if (!toolBlock || toolBlock.type !== "tool_use") {
-      // Claude searched but didn't call listing_analysis — do a follow-up call
-      const researchText = message.content
-        .filter(
-          (block): block is Anthropic.Messages.TextBlock =>
-            block.type === "text"
-        )
-        .map((block) => block.text)
-        .join("\n");
-
-      const followUp = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        tools: [LISTING_ANALYSIS_TOOL],
-        tool_choice: { type: "tool", name: "listing_analysis" },
-        messages: [
-          {
-            role: "user",
-            content: `Analyze and improve this listing based on the research below. Include comparable properties and a recommended price range.\n\n${researchText}`,
-          },
-        ],
-      });
-
-      const followUpBlock = followUp.content.find(
-        (block) => block.type === "tool_use"
-      );
-
-      if (!followUpBlock || followUpBlock.type !== "tool_use") {
-        return Response.json(
-          { error: "No analysis generated. Please try again." },
-          { status: 500 }
-        );
-      }
-
-      return Response.json(followUpBlock.input);
-    }
-
-    return Response.json(toolBlock.input);
-  } catch (err) {
-    console.error("Analysis error:", err);
-
-    const errMessage =
-      err instanceof Error ? err.message : "Something went wrong";
-
-    if (
-      errMessage.includes("authentication") ||
-      errMessage.includes("api_key")
-    ) {
-      return Response.json(
-        { error: "Invalid API key. Please check your ANTHROPIC_API_KEY." },
-        { status: 401 }
-      );
-    }
-
+  if (!listing || typeof listing !== "string" || !listing.trim()) {
     return Response.json(
-      { error: `Analysis failed: ${errMessage}` },
-      { status: 500 }
+      { error: "Please provide a listing to analyze." },
+      { status: 400 }
     );
   }
+
+  const client = new Anthropic({ apiKey });
+  const input = listing.trim();
+
+  // Use streaming response to keep connection alive and avoid Vercel timeout
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Send keep-alive pings every 5 seconds while processing
+      const keepAlive = setInterval(() => {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ status: "processing" })}\n\n`)
+        );
+      }, 5000);
+
+      try {
+        const result = await runAnalysis(client, input);
+        clearInterval(keepAlive);
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ result })}\n\n`)
+        );
+      } catch (err) {
+        clearInterval(keepAlive);
+        console.error("Analysis error:", err);
+        const errMessage =
+          err instanceof Error ? err.message : "Something went wrong";
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ error: errMessage })}\n\n`
+          )
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }

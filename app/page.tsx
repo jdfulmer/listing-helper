@@ -47,22 +47,38 @@ export default function Home() {
         body: JSON.stringify({ listing: listing.trim() }),
       });
 
-      if (!res.ok) {
-        let message = "Something went wrong. Please try again.";
-        try {
-          const data = await res.json();
-          message = data.error || message;
-        } catch {
-          if (res.status === 504) {
-            message =
-              "The analysis took too long. Try pasting the full listing text instead of just the MLS number.";
-          }
-        }
-        throw new Error(message);
+      if (!res.ok || !res.body) {
+        throw new Error("Something went wrong. Please try again.");
       }
 
-      const data = await res.json();
-      setResult(data);
+      // Read SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+      }
+
+      // Parse the last data event (skip keep-alive pings)
+      const events = fullText
+        .split("\n\n")
+        .filter((e) => e.startsWith("data: "));
+      const lastEvent = events[events.length - 1];
+
+      if (!lastEvent) {
+        throw new Error("No response received. Please try again.");
+      }
+
+      const data = JSON.parse(lastEvent.replace("data: ", ""));
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResult(data.result);
     } catch (err) {
       setError(
         err instanceof Error
