@@ -117,6 +117,7 @@ type Listing = {
   address: string | null;
   raw_input: string | null;
   status: string;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -229,6 +230,9 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(listing.share_token);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const router = useRouter();
 
   const currentAnalysis = allAnalyses.find((a) => a.version === selectedVersion) || null;
@@ -358,6 +362,51 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
     }
   }
 
+  function getShareUrl(token: string) {
+    return `${window.location.origin}/share/${token}`;
+  }
+
+  async function handleShare() {
+    if (shareToken) {
+      await navigator.clipboard.writeText(getShareUrl(shareToken));
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+      return;
+    }
+
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/listings/${listing.id}/share`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to create share link");
+      const data = await res.json();
+      setShareToken(data.share_token);
+      await navigator.clipboard.writeText(getShareUrl(data.share_token));
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      setError("Failed to create share link. Please try again.");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleUnshare() {
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/listings/${listing.id}/share`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to remove share link");
+      setShareToken(null);
+    } catch {
+      setError("Failed to remove share link. Please try again.");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -405,6 +454,35 @@ export default function ListingDetail({ listing, analyses }: ListingDetailProps)
               </option>
             ))}
           </select>
+
+          {/* Share controls */}
+          {shareToken ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full hover:bg-emerald-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {shareCopied ? "Link Copied!" : "Copy Share Link"}
+              </button>
+              <button
+                onClick={handleUnshare}
+                disabled={sharing}
+                className="px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                title="Remove share link"
+              >
+                Unshare
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="px-3 py-1.5 text-xs font-medium text-[#1B3A5C] bg-blue-50 rounded-full hover:bg-blue-100 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {sharing ? "Creating..." : "Share"}
+            </button>
+          )}
 
           {!confirmDelete ? (
             <button

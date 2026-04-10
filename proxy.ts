@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Unauthenticated users trying to access dashboard routes → redirect to login
-    if (!user && !pathname.startsWith("/login") && !pathname.startsWith("/signup")) {
+    if (!user && !pathname.startsWith("/login") && !pathname.startsWith("/signup") && !pathname.startsWith("/share")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
